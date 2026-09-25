@@ -148,9 +148,17 @@ CREATE TABLE sessions (
     status VARCHAR(50) NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'completed')),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT completed_session_has_exit CHECK (
+        (status = 'active' AND exit_time IS NULL AND duration_minutes IS NULL)
+        OR (status = 'completed' AND exit_time IS NOT NULL AND duration_minutes IS NOT NULL AND duration_minutes >= 0)
+    ),
     FOREIGN KEY (agent_id) REFERENCES agents(id) ON DELETE RESTRICT,
     FOREIGN KEY (room_id) REFERENCES rooms(id) ON DELETE RESTRICT
 );
+
+CREATE UNIQUE INDEX uq_active_session_per_person
+    ON sessions(person_id, person_type)
+    WHERE status = 'active';
 
 -- Table: computer_assignments
 CREATE TABLE computer_assignments (
@@ -183,6 +191,7 @@ CREATE TABLE reservations (
 -- Table: access_logs
 CREATE TABLE access_logs (
     id SERIAL PRIMARY KEY,
+    session_id INTEGER,
     person_id INTEGER,
     person_type VARCHAR(50),
     qr_identifier VARCHAR(50),
@@ -192,7 +201,8 @@ CREATE TABLE access_logs (
     error_message TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (agent_id) REFERENCES agents(id) ON DELETE SET NULL,
-    FOREIGN KEY (room_id) REFERENCES rooms(id) ON DELETE SET NULL
+    FOREIGN KEY (room_id) REFERENCES rooms(id) ON DELETE SET NULL,
+    FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE SET NULL
 );
 
 -- Index pour optimiser les performances
@@ -207,3 +217,4 @@ CREATE INDEX idx_reservations_date ON reservations(reservation_date);
 CREATE INDEX idx_reservations_status ON reservations(status);
 CREATE INDEX idx_access_logs_created ON access_logs(created_at);
 CREATE INDEX idx_access_logs_action ON access_logs(action);
+CREATE INDEX idx_access_logs_session ON access_logs(session_id);
